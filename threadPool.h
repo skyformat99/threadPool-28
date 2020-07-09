@@ -31,9 +31,11 @@ public:
 };
 
 template<class T>
-threadPool<T>::threadPool(int _threadNum, int _maxRequest){
-    if(_threadNum == 0 || _maxRequest == 0)
+threadPool<T>::threadPool(int _threadNum, int _maxRequestNum){
+    if(_threadNum == 0 || _maxRequestNum == 0)
         assert(0);
+    threadNum = _threadNum;
+    maxRequestNum = _maxRequestNum;
     
     threads = new pthread_t[_threadNum];
     assert(threads != nullptr);
@@ -50,6 +52,7 @@ threadPool<T>::threadPool(int _threadNum, int _maxRequest){
             throw std::exception();
         }
     }
+    //std::cout << "init finished" << endl;
 }
 
 template<class T>
@@ -65,29 +68,19 @@ bool threadPool<T>::append(T *request, int state){
         return false;
     }
     workQueue.push(request);
-    poolLocker.unlock();
+    //std::cout << request->getId() << ": V++" << endl;
+    //std::cout << "workQueue size:" << workQueue.size() << std::endl;
     queueState.post(); // V: +1
-
-    return true;
-}
-
-template<class T>
-bool threadPool<T>::append_p(T *request){
-    poolLocker.lock();
-    if(workQueue.size() >= threadNum){
-        poolLocker.unlock();
-        return false;
-    }
-    workQueue.push(request);
     poolLocker.unlock();
-    queueState.post();
+
     return true;
 }
 
 template<class T>
 void* threadPool<T>::worker(void *arg){
-    std::cout << "thread:" << pthread_self() << std::endl;
-    threadPool* pool = (threadPool*) arg;
+    //std::cout << "thread:" << pthread_self() << std::endl;
+    //std::cout << "pool addr:" << arg << std::endl;
+    threadPool* pool = (threadPool*) arg; // this
     pool->run();
     return pool;
 }
@@ -110,8 +103,11 @@ void threadPool<T>::run(){
         T* request = workQueue.front();
         workQueue.pop();
         poolLocker.unlock();
-        if (!request)
+        if (!request){
+            std::cout << "request is null" << std::endl;
             continue;
+        }
+        
         request->work(); // request is workinng ! 
     }
 }
